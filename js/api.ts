@@ -158,13 +158,18 @@ export async function getSongUrl(song: Song, quality: string): Promise<{ url: st
         const response = await fetchWithRetry(`${currentAPI.url}/song/url/v1?id=${song.id}&level=${level}`);
         const data = await response.json();
         if (data.code === 200 && data.data?.[0]) {
-            return { url: data.data[0].url || '', br: String(data.data[0].br || quality) };
+            const result = { url: data.data[0].url || '', br: String(data.data[0].br || quality) };
+            console.log('获取音频 URL:', result.url ? result.url.substring(0, 80) + '...' : '(空)');
+            return result;
         }
+        console.warn('NEC API 返回空 URL, data:', data);
         return { url: '', br: quality };
     } else {
         // Meting API
         const response = await fetchWithRetry(`${currentAPI.url}?types=url&source=${song.source}&id=${song.id}&br=${quality}`);
-        return await response.json();
+        const result = await response.json();
+        console.log('获取音频 URL:', result?.url ? result.url.substring(0, 80) + '...' : '(空)', 'response:', result);
+        return result;
     }
 }
 

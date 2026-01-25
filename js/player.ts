@@ -380,6 +380,30 @@ function savePlaylistsToStorage(): void {
     }
 }
 
+// NOTE: 监听音频加载错误，提供详细诊断信息
+audioPlayer.addEventListener('error', (e) => {
+    const error = audioPlayer.error;
+    let errorMsg = '未知错误';
+    if (error) {
+        switch (error.code) {
+            case MediaError.MEDIA_ERR_ABORTED:
+                errorMsg = '播放被中断';
+                break;
+            case MediaError.MEDIA_ERR_NETWORK:
+                errorMsg = '网络错误导致加载失败';
+                break;
+            case MediaError.MEDIA_ERR_DECODE:
+                errorMsg = '音频解码失败';
+                break;
+            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                errorMsg = '音频格式不支持或URL无效';
+                break;
+        }
+    }
+    console.error('Audio Error:', errorMsg, 'URL:', audioPlayer.src);
+    ui.showNotification(`播放错误: ${errorMsg}`, 'error');
+});
+
 audioPlayer.addEventListener('play', () => {
     isPlaying = true;
     ui.updatePlayButton(true);
