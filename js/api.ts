@@ -257,53 +257,17 @@ export async function getAlbumCoverUrl(song: Song, size: number = 300): Promise<
 /**
  * 获取歌曲播放 URL
  * NOTE: 
- * 1. 优先使用 Meting API 播放（解决 30s 试听问题）
- * 2. 如果 Meting 失败，回退到 NEC API (常规 + 灰色解锁)
+ * 1. 优先使用 NEC Unblock (match) 接口，利用 UnblockNeteaseMusic 跨源搜索解决 VIP/试听限制 (45s问题)
+ * 2. 其次尝试 Meting API
+ * 3. 最后尝试 NEC 常规接口
  */
 export async function getSongUrl(song: Song, quality: string): Promise<{ url: string; br: string }> {
-    // 强制优先尝试 Meting API
-    const metingUrl = 'https://api.injahow.cn/meting';
-    try {
-        console.log('尝试使用 Meting API 获取音频 URL...');
-        // NOTE: 使用 type=song 而不是 type=url，因为 type=url 会直接返回音频流（导致 JSON 解析失败）
-        // type=song 返回包含 url 的 JSON 数组
-        const response = await fetchWithRetry(`${metingUrl}/?type=song&id=${song.id}`);
-        const data = await response.json();
-
-        // Meting API type=song 返回的是数组
-        const result = Array.isArray(data) ? data[0] : data;
-
-        if (result && result.url) {
-            console.log('Meting API 获取成功:', result.url.substring(0, 50) + '...');
-            // 检查是否是网易云的试听链接（有时 Meting 也会返回试听）
-            // 但通常 Meting 聚合了 VIP 账号，能拿到完整的
-            return { url: result.url, br: String(result.br || quality) };
-        }
-        console.warn('Meting API 返回空 URL');
-    } catch (e) {
-        console.warn('Meting API 请求失败，回退到 NEC API:', e);
-    }
-
-    // 回退到 NEC API 逻辑
     const necUrl = currentAPI.type === 'nec' ? currentAPI.url : 'https://nec8.de5.net';
-    // NEC API: /song/url/v1 + randomCNIP 解决 IP 限制
-    const level = quality === '999' ? 'hires' : quality === '740' ? 'lossless' : quality === '320' ? 'exhigh' : 'standard';
+    const metingUrl = 'https://api.injahow.cn/meting';
 
+    // 1. 第一优先级：尝试 UnblockNeteaseMusic 解锁 (跨源匹配完整音频)
     try {
-        // 尝试常规接口 + randomCNIP
-        const response = await fetchWithRetry(
-            `${necUrl}/song/url/v1?id=${song.id}&level=${level}&randomCNIP=true`
-        );
-        const data = await response.json();
-
-        if (data.code === 200 && data.data?.[0]?.url) {
-            const result = { url: data.data[0].url, br: String(data.data[0].br || quality) };
-            console.log('NEC API 获取音频 URL:', result.url.substring(0, 80) + '...');
-            return result;
-        }
-
-        // 常规接口返回空 URL，尝试 UnblockNeteaseMusic 解锁灰色歌曲
-        console.log('NEC 常规接口无法获取 URL，尝试解锁灰色歌曲...');
+        console.log('优先尝试 NEC Unblock (match) 解锁灰色/VIP 歌曲...');
         const matchResponse = await fetchWithRetry(
             `${necUrl}/song/url/match?id=${song.id}&randomCNIP=true`
         );
@@ -311,14 +275,49 @@ export async function getSongUrl(song: Song, quality: string): Promise<{ url: st
 
         if (matchData.code === 200 && matchData.data?.[0]?.url) {
             const result = { url: matchData.data[0].url, br: String(matchData.data[0].br || quality) };
-            console.log('NEC 解锁灰色歌曲成功:', result.url.substring(0, 80) + '...');
+            console.log('NEC Unblock 解锁成功:', result.url.substring(0, 80) + '...');
+            return result;
+        }
+    } catch (e) {
+        console.warn('NEC Unblock 请求失败:', e);
+    }
+
+    // 2. 第二优先级：尝试 Meting API
+    try {
+        console.log('尝试使用 Meting API 获取音频 URL...');
+        // NOTE: 使用 type=song 返回包含 url 的 JSON 数组
+        const response = await fetchWithRetry(`${metingUrl}/?type=song&id=${song.id}`);
+        const data = await response.json();
+
+        const result = Array.isArray(data) ? data[0] : data;
+
+        if (result && result.url) {
+            console.log('Meting API 获取成功:', result.url.substring(0, 50) + '...');
+            return { url: result.url, br: String(result.br || quality) };
+        }
+    } catch (e) {
+        console.warn('Meting API 请求失败:', e);
+    }
+
+    // 3. 第三优先级：NEC 常规接口 (兜底)
+    const level = quality === '999' ? 'hires' : quality === '740' ? 'lossless' : quality === '320' ? 'exhigh' : 'standard';
+    try {
+        console.log('尝试 NEC 常规接口...');
+        const response = await fetchWithRetry(
+            `${necUrl}/song/url/v1?id=${song.id}&level=${level}&randomCNIP=true`
+        );
+        const data = await response.json();
+
+        if (data.code === 200 && data.data?.[0]?.url) {
+            const result = { url: data.data[0].url, br: String(data.data[0].br || quality) };
+            console.log('NEC 常规接口获取成功:', result.url.substring(0, 80) + '...');
             return result;
         }
 
         console.warn('所有方式均无法获取 URL');
         return { url: '', br: quality };
     } catch (error) {
-        console.error('获取歌曲 URL 失败:', error);
+        console.error('NEC 常规接口失败:', error);
         return { url: '', br: quality };
     }
 }
