@@ -7,6 +7,7 @@ const ALLOWED_HOSTS = [
     'api.injahow.cn',
     'meting.qjqq.cn',
     'nec8.de5.net',
+    'tktok.de5.net',
     // QQ 音乐
     'y.qq.com',
     // 网易云音乐
