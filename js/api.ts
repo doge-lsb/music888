@@ -401,29 +401,55 @@ export async function searchMusicAPI(keyword: string, _source?: string): Promise
         const response = await fetchWithRetry(`${searchApiUrl}/search?keywords=${encodeURIComponent(keyword)}&limit=30`);
         const data = await response.json();
 
+        // 外部 API 响应接口定义
+        interface NeteaseAlbum {
+            name: string;
+            picId?: number;
+            id?: number;
+            picUrl?: string;
+            [key: string]: any;
+        }
+
+        interface NeteaseSong {
+            id: number;
+            name: string;
+            artists?: { name: string }[];
+            ar?: { name: string }[];
+            album?: NeteaseAlbum;
+            al?: NeteaseAlbum;
+            [key: string]: any;
+        }
+
+        interface NeteaseArtist {
+            name: string;
+            [key: string]: any;
+        }
+
+        // ... existing code ...
         if (data.code === 200 && data.result?.songs) {
-            const songs = data.result.songs;
+            const songs: NeteaseSong[] = data.result.songs;
 
             // NOTE: 搜索结果中缺少 picUrl，需要调用 /song/detail 获取详情
             try {
-                const ids = songs.map((s: any) => s.id).join(',');
+                const ids = songs.map((s) => s.id).join(',');
                 if (ids) {
                     const detailResponse = await fetchWithRetry(`${searchApiUrl}/song/detail?ids=${ids}`);
                     const detailData = await detailResponse.json();
 
                     if (detailData.code === 200 && detailData.songs) {
                         // 创建 id -> detail 映射
-                        const detailMap = new Map(detailData.songs.map((s: any) => [s.id, s]));
+                        const detailMap = new Map<number, NeteaseSong>(detailData.songs.map((s: NeteaseSong) => [s.id, s]));
 
-                        return songs.map((song: any) => {
-                            const detail: any = detailMap.get(song.id) || {};
-                            const album = detail.al || song.album || {};
+
+                        return songs.map((song) => {
+                            const detail = detailMap.get(song.id) || {} as NeteaseSong;
+                            const album = detail.al || song.album || {} as NeteaseAlbum;
                             const artists = detail.ar || song.artists || [];
 
                             return {
                                 id: String(song.id),
                                 name: song.name,
-                                artist: artists.map((a: any) => a.name) || [],
+                                artist: artists.map((a: NeteaseArtist) => a.name) || [],
                                 album: album.name || '',
                                 pic_id: String(album.picId || album.id || ''),
                                 pic_url: album.picUrl || '',
