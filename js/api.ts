@@ -620,61 +620,53 @@ export async function getSongUrl(song: Song, quality: string): Promise<SongUrlRe
 
 /**
  * 获取歌词
- * NOTE: 优先使用 GDStudio API，其次 Meting API，最后 NEC API
+ * NOTE: 优先使用 NEC API（最稳定），其次 GDStudio API
  */
 export async function getLyrics(song: Song): Promise<LyricResult> {
-    const gdstudioUrl = getGDStudioApiUrl();
-    const metingUrl = getMetingApiUrl();
     const source = song.source || 'netease';
+    const necUrl = currentAPI.type === 'nec' ? currentAPI.url : 'https://nec8.de5.net';
 
-    // 1. 优先尝试 GDStudio API
-    try {
-        const response = await fetchWithRetry(
-            `${gdstudioUrl}?types=lyric&source=${source}&id=${song.lyric_id || song.id}`
-        );
-        const data: GDStudioLyricResponse = await response.json();
-        if (data?.lyric) {
-            return { lyric: data.lyric };
-        }
-    } catch (e) {
-        console.warn('GDStudio API 获取歌词失败，尝试 Meting API:', e);
-    }
-
-    // 2. 回退到 Meting API
-    try {
-        const response = await fetchWithRetry(`${metingUrl}/?type=lrc&id=${song.lyric_id || song.id}`);
-        const text = await response.text();
-
-        try {
-            const result: { lyric?: string; lrc?: string } = JSON.parse(text);
-            if (result && (result.lyric || result.lrc)) {
-                return { lyric: result.lyric || result.lrc || '' };
-            }
-        } catch {
-            if (text && text.length > 0) {
-                return { lyric: text };
-            }
-        }
-    } catch (e) {
-        console.warn('Meting API 获取歌词失败，回退到 NEC API:', e);
-    }
-
-    // 3. 最后回退到 NEC API（仅网易云）
+    // 1. 优先使用 NEC API（仅网易云，最稳定）
     if (source === 'netease') {
-        const necUrl = currentAPI.type === 'nec' ? currentAPI.url : 'https://nec8.de5.net';
         try {
-            const response = await fetchWithRetry(`${necUrl}/lyric?id=${song.id}`);
+            console.log('尝试 NEC API 获取歌词...');
+            const response = await fetchWithRetry(`${necUrl}/lyric?id=${song.id}`, {}, 1);
             const data: NeteaseLyricResponse = await response.json();
-            if (data.code === 200) {
-                return { lyric: data.lrc?.lyric || '' };
+            if (data.code === 200 && data.lrc?.lyric) {
+                console.log('NEC API 获取歌词成功');
+                return { lyric: data.lrc.lyric };
             }
-            return { lyric: '' };
         } catch (error) {
-            console.error('获取歌词失败:', error);
-            return { lyric: '' };
+            console.warn('NEC API 获取歌词失败:', error);
         }
     }
 
+    // 2. 回退到 GDStudio API（支持多音乐源）
+    if (isGDStudioApiAvailable()) {
+        const gdstudioUrl = getGDStudioApiUrl();
+        try {
+            console.log('尝试 GDStudio API 获取歌词...');
+            const response = await fetchWithRetry(
+                `${gdstudioUrl}?types=lyric&source=${source}&id=${song.lyric_id || song.id}`,
+                {},
+                1  // 减少重试次数
+            );
+            const data: GDStudioLyricResponse = await response.json();
+            if (data?.lyric) {
+                markGDStudioApiAvailable();
+                console.log('GDStudio API 获取歌词成功');
+                return { lyric: data.lyric };
+            }
+        } catch (e) {
+            console.warn('GDStudio API 获取歌词失败:', e);
+            if (e instanceof MusicError && e.message.includes('403')) {
+                markGDStudioApiUnavailable();
+            }
+        }
+    }
+
+    // 3. 返回空歌词
+    console.log('无法获取歌词');
     return { lyric: '' };
 }
 
@@ -708,40 +700,51 @@ export async function searchMusicAPI(keyword: string, source: string = 'netease'
     const necUrl = currentAPI.type === 'nec' ? currentAPI.url : 'https://nec8.de5.net';
 
     // 1. 优先尝试 GDStudio API（支持多音乐源）
-    try {
-        console.log(`使用 GDStudio API 搜索 (${source}): ${keyword}`);
-        const response = await fetchWithRetry(
-            `${gdstudioUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=30`
-        );
-        const data = await response.json();
+    // NOTE: 检查 GDStudio API 是否可用
+    if (isGDStudioApiAvailable()) {
+        try {
+            console.log(`使用 GDStudio API 搜索 (${source}): ${keyword}`);
+            const response = await fetchWithRetry(
+                `${gdstudioUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=30`,
+                {},
+                1  // 减少重试次数
+            );
+            const data = await response.json();
 
-        // GDStudio API 返回数组或对象格式
-        let songs: GDStudioSong[] = [];
-        if (Array.isArray(data)) {
-            songs = data as GDStudioSong[];
-        } else if (typeof data === 'object' && data !== null) {
-            // 对象格式，提取所有歌曲
-            const values = Object.values(data);
-            songs = values.filter((item): item is GDStudioSong => {
-                return !!(item && typeof item === 'object' && 'id' in item && 'name' in item);
-            }) as GDStudioSong[];
-        }
+            // GDStudio API 返回数组或对象格式
+            let songs: GDStudioSong[] = [];
+            if (Array.isArray(data)) {
+                songs = data as GDStudioSong[];
+            } else if (typeof data === 'object' && data !== null) {
+                // 对象格式，提取所有歌曲
+                const values = Object.values(data);
+                songs = values.filter((item): item is GDStudioSong => {
+                    return !!(item && typeof item === 'object' && 'id' in item && 'name' in item);
+                }) as GDStudioSong[];
+            }
 
-        if (songs.length > 0) {
-            console.log(`GDStudio API 搜索成功，找到 ${songs.length} 首歌曲`);
-            return songs.map(song => ({
-                id: song.id,
-                name: song.name,
-                artist: Array.isArray(song.artist) ? song.artist : [song.artist],
-                album: song.album || '',
-                pic_id: song.pic_id || '',
-                pic_url: '',
-                lyric_id: song.lyric_id || song.id,
-                source: song.source || source
-            }));
+            if (songs.length > 0) {
+                markGDStudioApiAvailable();
+                console.log(`GDStudio API 搜索成功，找到 ${songs.length} 首歌曲`);
+                return songs.map(song => ({
+                    id: song.id,
+                    name: song.name,
+                    artist: Array.isArray(song.artist) ? song.artist : [song.artist],
+                    album: song.album || '',
+                    pic_id: song.pic_id || '',
+                    pic_url: '',
+                    lyric_id: song.lyric_id || song.id,
+                    source: song.source || source
+                }));
+            }
+        } catch (e) {
+            console.warn('GDStudio API 搜索失败，回退到 NEC API:', e);
+            if (e instanceof MusicError && e.message.includes('403')) {
+                markGDStudioApiUnavailable();
+            }
         }
-    } catch (e) {
-        console.warn('GDStudio API 搜索失败，回退到 NEC API:', e);
+    } else {
+        console.log('GDStudio API 暂时不可用，直接使用 NEC API');
     }
 
     // 2. 回退到 NEC API（仅支持网易云）
