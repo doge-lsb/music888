@@ -116,6 +116,7 @@
         left: 0;
         right: 0;
         z-index: 100;
+        background: var(--color-bg-dark);
     }
 
     .logo {
@@ -266,12 +267,6 @@
 
 /* === Small Phones === */
 @media (max-width: 480px) {
-    .main-container {
-        padding-top: 50px;
-    }
-
-    /* Same padding as 768px but explicit is good */
-
     .nav-container {
         padding: 0 10px;
     }

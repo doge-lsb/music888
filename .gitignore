@@ -20,6 +20,15 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Screenshots / images (keep public/ assets intentionally)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
 
 # Logs
 logs/
