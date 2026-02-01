@@ -73,13 +73,11 @@
     .main-container {
         display: flex !important;
         grid-template-columns: unset !important;
-        padding: 110px 0 0 0;
-        /* Add padding for navbar + search bar */
-        height: calc(100vh - 110px);
+        padding: 0 !important;
+        margin-top: 100px !important;
+        height: calc(100vh - 100px) !important;
         overflow: visible !important;
-        /* NOTE: 允许子元素溢出，通过 body overflow-x:hidden 裁剪 */
         width: 300vw !important;
-        /* NOTE: 3个页面的总宽度 */
         flex-direction: row;
         transition: transform 0.3s ease-out;
         align-items: stretch;
@@ -87,6 +85,7 @@
         max-width: none !important;
         position: relative;
         left: 0;
+        min-height: unset !important;
     }
 
     .content-section,
@@ -95,7 +94,8 @@
         width: 100vw !important;
         min-width: 100vw !important;
         max-width: 100vw !important;
-        height: calc(100vh - 180px);
+        height: 100% !important;
+        min-height: unset !important;
         margin: 0;
         border-radius: 0;
         border: none;
@@ -104,18 +104,22 @@
         overflow-x: hidden;
         flex-shrink: 0;
         flex-grow: 0;
-        padding: 15px;
-        padding-bottom: 80px;
-        /* Space for indicators */
+        padding: 10px 15px;
+        padding-bottom: 70px;
         box-sizing: border-box;
     }
 
     .navbar {
-        padding: 10px 0;
+        padding: 8px 0;
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
     }
 
     .logo {
-        font-size: 20px;
+        font-size: 18px;
     }
 
     .nav-container {
@@ -124,15 +128,16 @@
 
     .search-container {
         position: fixed;
-        top: 60px;
+        top: 50px;
         left: 0;
         width: 100%;
-        padding: 10px 15px;
+        padding: 8px 15px;
         margin: 0;
         background: var(--color-bg-dark);
         z-index: 90;
         max-width: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        box-sizing: border-box;
     }
 
     .search-wrapper {
