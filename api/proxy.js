@@ -11,6 +11,7 @@ const ALLOWED_HOSTS = [
     'meting.qjqq.cn',
     'nec8.de5.net',
     'tktok.de5.net',
+    'netease-cloud-music-api-five-roan.vercel.app',
     // QQ 音乐
     'y.qq.com',
     // 网易云音乐

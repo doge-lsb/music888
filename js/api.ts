@@ -49,6 +49,12 @@ const API_SOURCES: ApiSource[] = [
         supportsSearch: true
     },
     {
+        name: 'NEC API 2',
+        url: 'https://netease-cloud-music-api-five-roan.vercel.app',
+        type: 'nec',
+        supportsSearch: true
+    },
+    {
         name: 'Meting API (Pro)',
         url: 'https://tktok.de5.net/api',
         type: 'meting',
@@ -369,6 +375,35 @@ const FALLBACK_SOURCES = ['kuwo', 'kugou', 'migu', 'ximalaya', 'joox'];
 const crossSourceSearchInProgress = new Set<string>();
 
 /**
+ * 使用备用 NEC API 获取歌曲 URL
+ */
+async function getSongUrlFromNecApi(songId: string, quality: string): Promise<SongUrlResult | null> {
+    const necApis = API_SOURCES.filter(api => api.type === 'nec');
+
+    for (const necApi of necApis) {
+        try {
+            const level = quality === '999' ? 'hires' : quality === '740' ? 'lossless' : quality === '320' ? 'exhigh' : 'standard';
+            const response = await fetchWithRetry(
+                `${necApi.url}/song/url/v1?id=${songId}&level=${level}&randomCNIP=true`,
+                {},
+                0
+            );
+            const data: NeteaseSongUrlResponse = await response.json();
+
+            if (data.code === 200 && data.data?.[0]?.url) {
+                return {
+                    url: data.data[0].url,
+                    br: String(data.data[0].br || quality)
+                };
+            }
+        } catch (e) {
+            console.warn(`NEC API (${necApi.name}) 获取 URL 失败:`, e);
+        }
+    }
+    return null;
+}
+
+/**
  * 从指定音乐源直接获取歌曲 URL（内部函数）
  */
 async function getSongUrlFromSource(
@@ -624,6 +659,16 @@ export async function getSongUrl(song: Song, quality: string): Promise<SongUrlRe
             }
         } catch (error) {
             console.warn('NEC 常规接口失败:', error);
+        }
+
+        // 3.5. 尝试备用 NEC API
+        console.log('尝试备用 NEC API...');
+        const backupResult = await getSongUrlFromNecApi(song.id, quality);
+        if (backupResult && !isProbablyPreview(backupResult.url)) {
+            console.log('备用 NEC API 获取成功');
+            return backupResult;
+        } else if (backupResult) {
+            candidates.push(backupResult);
         }
     }
 
