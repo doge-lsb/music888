@@ -1,6 +1,7 @@
 # 云音乐 - 在线音乐播放器
 
 功能丰富的在线音乐播放器，三栏布局设计，集成歌手浏览、电台播客、歌单管理等功能。
+<img width="1912" height="930" alt="screencapture-music888-pages-dev-2026-02-06-22_08_25" src="https://github.com/user-attachments/assets/a3f468f5-24c2-4828-a13b-6e0c9daec95d" />
 
 ## 功能介绍
 
