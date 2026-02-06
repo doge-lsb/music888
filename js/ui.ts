@@ -1,5 +1,5 @@
 import * as api from './api';
-import { Song, LyricLine, DOMCache, ScrollState, NotificationType } from './types';
+import { Song, LyricLine, DOMCache, ScrollState, NotificationType, ArtistInfo, RadioStation, RadioProgram } from './types';
 import * as player from './player';
 import { escapeHtml, formatTime, getElement } from './utils';
 import { APP_CONFIG, logger } from './config';
@@ -30,6 +30,7 @@ export function init(): void {
         lyricsContainer: getElement('#lyricsContainer'),
         downloadSongBtn: getElement<HTMLButtonElement>('#downloadSongBtn'),
         downloadLyricBtn: getElement<HTMLButtonElement>('#downloadLyricBtn'),
+        inlineLyricText: getElement('#inlineLyricText'),
     };
 }
 
@@ -485,4 +486,161 @@ export function showError(message: string, containerId: string = 'searchResults'
         // NOTE: 使用 escapeHtml 转义错误消息
         container.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i><div>${escapeHtml(message)}</div></div>`;
     }
+}
+
+/**
+ * 更新播放器内单行歌词
+ * @param lyrics 歌词行数组
+ * @param currentTime 当前播放时间（秒）
+ */
+export function updateInlineLyrics(lyrics: LyricLine[], currentTime: number): void {
+    if (!DOM.inlineLyricText) return;
+
+    if (!lyrics.length) {
+        DOM.inlineLyricText.textContent = '暂无歌词';
+        DOM.inlineLyricText.classList.remove('has-lyric');
+        return;
+    }
+
+    let activeText = '';
+    for (let i = 0; i < lyrics.length; i++) {
+        const nextLine = lyrics[i + 1];
+        if (currentTime >= lyrics[i].time && (!nextLine || currentTime < nextLine.time)) {
+            activeText = lyrics[i].text;
+            break;
+        }
+    }
+
+    if (activeText) {
+        DOM.inlineLyricText.textContent = activeText;
+        DOM.inlineLyricText.classList.add('has-lyric');
+    } else {
+        DOM.inlineLyricText.textContent = '暂无歌词';
+        DOM.inlineLyricText.classList.remove('has-lyric');
+    }
+}
+
+/**
+ * 渲染歌手网格
+ * @param artists 歌手列表
+ * @param containerId 容器元素 ID
+ * @param onClick 点击歌手回调
+ */
+export function displayArtistGrid(artists: ArtistInfo[], containerId: string, onClick: (artist: ArtistInfo) => void): void {
+    const container = getElement(`#${containerId}`);
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (artists.length === 0) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-microphone-alt"></i><div>暂无歌手数据</div></div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (const artist of artists) {
+        const card = document.createElement('div');
+        card.className = 'artist-card';
+
+        const avatarUrl = artist.picUrl
+            ? `${artist.picUrl}?param=120y120`
+            : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PHRleHQgeD0iMzIiIHk9IjQwIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMykiPu+ZjjwvdGV4dD48L3N2Zz4=';
+
+        card.innerHTML = `
+            <img class="artist-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(artist.name)}" loading="lazy">
+            <div class="artist-name">${escapeHtml(artist.name)}</div>
+        `;
+
+        card.addEventListener('click', () => onClick(artist));
+        fragment.appendChild(card);
+    }
+
+    container.appendChild(fragment);
+}
+
+/**
+ * 渲染电台列表
+ * @param radios 电台列表
+ * @param containerId 容器元素 ID
+ * @param onClick 点击电台回调
+ */
+export function displayRadioList(radios: RadioStation[], containerId: string, onClick: (radio: RadioStation) => void): void {
+    const container = getElement(`#${containerId}`);
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (radios.length === 0) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-podcast"></i><div>暂无电台数据</div></div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (const radio of radios) {
+        const item = document.createElement('div');
+        item.className = 'radio-item';
+
+        const coverUrl = radio.picUrl
+            ? `${radio.picUrl}?param=100y100`
+            : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHJ4PSI4IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48dGV4dCB4PSIyNSIgeT0iMzIiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4zKSI+8J+OmTwvdGV4dD48L3N2Zz4=';
+        const djName = radio.dj?.nickname || '未知主播';
+        const meta = radio.programCount ? `${radio.programCount} 期` : '';
+
+        item.innerHTML = `
+            <img class="radio-cover" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(radio.name)}" loading="lazy">
+            <div class="radio-info">
+                <div class="radio-name">${escapeHtml(radio.name)}</div>
+                <div class="radio-meta">${escapeHtml(djName)}${meta ? ' · ' + escapeHtml(meta) : ''}</div>
+            </div>
+        `;
+
+        item.addEventListener('click', () => onClick(radio));
+        fragment.appendChild(item);
+    }
+
+    container.appendChild(fragment);
+}
+
+/**
+ * 渲染电台节目列表为可播放的歌曲项
+ * @param programs 电台节目列表
+ * @param containerId 容器元素 ID
+ * @param onPlay 点击播放回调
+ */
+export function displayRadioPrograms(programs: RadioProgram[], containerId: string, onPlay: (program: RadioProgram) => void): void {
+    const container = getElement(`#${containerId}`);
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (programs.length === 0) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-podcast"></i><div>暂无节目</div></div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < programs.length; i++) {
+        const program = programs[i];
+        const songItem = document.createElement('div');
+        songItem.className = 'song-item';
+
+        const djName = program.dj?.nickname || '';
+        const durationMin = Math.floor(program.duration / 60000);
+
+        songItem.innerHTML = `
+            <div class="song-index">${(i + 1).toString().padStart(2, '0')}</div>
+            <div class="song-info">
+                <div class="song-name">${escapeHtml(program.name)}</div>
+                <div class="song-artist">${escapeHtml(djName)}${durationMin > 0 ? ' · ' + durationMin + '分钟' : ''}</div>
+            </div>
+        `;
+
+        songItem.addEventListener('click', () => onPlay(program));
+        fragment.appendChild(songItem);
+    }
+
+    container.appendChild(fragment);
 }

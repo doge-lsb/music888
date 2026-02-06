@@ -42,7 +42,11 @@ export {
 export {
     searchMusicAPI,
     exploreRadarAPI,
-    parsePlaylistAPI
+    parsePlaylistAPI,
+    getArtistList,
+    getArtistTopSongs,
+    getHotRadio,
+    getRadioPrograms
 } from './api/search';
 
 // 导出工具函数 (如果需要的话)

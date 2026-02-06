@@ -473,6 +473,7 @@ export interface DOMCache {
     lyricsContainer: HTMLElement | null;
     downloadSongBtn: HTMLButtonElement | null;
     downloadLyricBtn: HTMLButtonElement | null;
+    inlineLyricText: HTMLElement | null;
 }
 
 /**
@@ -484,4 +485,80 @@ export interface ScrollState {
     playlistForPlayback: Song[];
     renderedCount: number;
     batchSize: number;
+}
+
+// ============================================
+// 歌手与电台类型
+// ============================================
+
+/**
+ * 歌手信息
+ */
+export interface ArtistInfo {
+    id: number;
+    name: string;
+    picUrl?: string;
+    albumSize?: number;
+    musicSize?: number;
+}
+
+/**
+ * 歌手列表 API 响应
+ */
+export interface ArtistListResponse {
+    code: number;
+    more: boolean;
+    artists?: ArtistInfo[];
+}
+
+/**
+ * 歌手热门歌曲 API 响应
+ */
+export interface ArtistTopSongResponse {
+    code: number;
+    songs?: NeteaseSongDetail[];
+}
+
+/**
+ * 电台信息
+ */
+export interface RadioStation {
+    id: number;
+    name: string;
+    picUrl?: string;
+    dj?: { nickname: string };
+    desc?: string;
+    programCount?: number;
+    subCount?: number;
+    categoryName?: string;
+}
+
+/**
+ * 热门电台 API 响应
+ */
+export interface RadioHotResponse {
+    code: number;
+    djRadios?: RadioStation[];
+}
+
+/**
+ * 电台节目
+ */
+export interface RadioProgram {
+    id: number;
+    name: string;
+    mainTrackId: number;
+    description?: string;
+    duration: number;
+    coverUrl?: string;
+    dj?: { nickname: string };
+}
+
+/**
+ * 电台节目 API 响应
+ */
+export interface RadioProgramResponse {
+    code: number;
+    programs?: RadioProgram[];
+    more?: boolean;
 }

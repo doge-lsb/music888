@@ -13,7 +13,14 @@ import {
     GDStudioSong,
     PlaylistParseResult,
     NeteasePlaylistDetailResponse,
-    MusicError
+    MusicError,
+    ArtistInfo,
+    ArtistListResponse,
+    ArtistTopSongResponse,
+    RadioStation,
+    RadioHotResponse,
+    RadioProgram,
+    RadioProgramResponse
 } from '../types';
 
 import { fetchWithRetry } from './client';
@@ -30,7 +37,7 @@ import {
 /**
  * 将网易云详情映射为内部 Song
  */
-function convertNeteaseDetailToSong(song: NeteaseSongDetail): Song {
+export function convertNeteaseDetailToSong(song: NeteaseSongDetail): Song {
     const album: NeteaseAlbum = song.al || { id: 0, name: '' };
     const artists: NeteaseArtist[] = song.ar || [];
     return {
@@ -148,4 +155,40 @@ export async function parsePlaylistAPI(playlistUrlOrId: string): Promise<Playlis
         }
     }
     throw new Error('歌单解析失败');
+}
+
+/**
+ * 获取歌手列表
+ */
+export async function getArtistList(area = -1, type = -1, limit = 30): Promise<ArtistInfo[]> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/artist/list?type=${type}&area=${area}&initial=-1&limit=${limit}`);
+    const data: ArtistListResponse = await res.json();
+    return data.code === 200 && data.artists ? data.artists : [];
+}
+
+/**
+ * 获取歌手热门歌曲
+ */
+export async function getArtistTopSongs(id: number): Promise<Song[]> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/artist/top/song?id=${id}`);
+    const data: ArtistTopSongResponse = await res.json();
+    return data.code === 200 && data.songs ? data.songs.map(convertNeteaseDetailToSong) : [];
+}
+
+/**
+ * 获取热门电台
+ */
+export async function getHotRadio(limit = 30): Promise<RadioStation[]> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/dj/hot?limit=${limit}`);
+    const data: RadioHotResponse = await res.json();
+    return data.code === 200 && data.djRadios ? data.djRadios : [];
+}
+
+/**
+ * 获取电台节目列表
+ */
+export async function getRadioPrograms(rid: number, limit = 30): Promise<RadioProgram[]> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/dj/program?rid=${rid}&limit=${limit}`);
+    const data: RadioProgramResponse = await res.json();
+    return data.code === 200 && data.programs ? data.programs : [];
 }

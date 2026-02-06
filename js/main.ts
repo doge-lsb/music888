@@ -6,7 +6,7 @@ import * as api from './api';
 import * as ui from './ui';
 import * as player from './player';
 import { getElement } from './utils';
-import { MusicError } from './types';
+import { MusicError, ArtistInfo, RadioStation, RadioProgram } from './types';
 import { logger } from './config';
 import { initPerformanceMonitoring } from './perf';
 
@@ -126,7 +126,7 @@ function initializeApp(): void {
     // Initial tab state - 使用热门标签
     switchTab('hot');
 
-    // 加载收藏和播放历史
+    // 加载收藏和播放历史（右栏"我的"面板）
     loadMyTabData();
 }
 
@@ -229,17 +229,28 @@ function bindEventListeners(): void {
             if (tabName) {
                 switchTab(tabName);
 
-                // 切换到"我的"标签时刷新数据
-                if (tabName === 'my') {
-                    loadMyTabData();
-                }
-
                 // 切换到"排行榜"标签时，默认加载热歌榜（如果尚未加载）
                 if (tabName === 'ranking') {
                     const rankingResults = document.getElementById('rankingResults');
                     // 如果当前是空状态，则加载热歌榜
                     if (rankingResults && rankingResults.querySelector('.empty-state')) {
                         handleRanking('hot');
+                    }
+                }
+
+                // 切换到"歌手"标签时，首次加载歌手列表
+                if (tabName === 'artist') {
+                    const artistGrid = document.getElementById('artistGrid');
+                    if (artistGrid && artistGrid.children.length === 0) {
+                        handleLoadArtists(-1);
+                    }
+                }
+
+                // 切换到"电台"标签时，首次加载热门电台
+                if (tabName === 'radio') {
+                    const radioList = document.getElementById('radioList');
+                    if (radioList && radioList.children.length === 0) {
+                        handleLoadRadio();
                     }
                 }
             }
@@ -285,6 +296,48 @@ function bindEventListeners(): void {
             }
         });
     }
+
+    // 歌手地区筛选按钮
+    document.querySelectorAll('#artistFilter .filter-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('#artistFilter .filter-btn').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            const area = parseInt((button as HTMLElement).dataset.area || '-1', 10);
+            handleLoadArtists(area);
+        });
+    });
+
+    // 返回歌手列表按钮
+    const backToArtists = getElement('#backToArtists');
+    if (backToArtists) {
+        backToArtists.addEventListener('click', () => {
+            const artistGrid = getElement('#artistGrid');
+            const artistFilter = getElement('#artistFilter');
+            const artistSongsView = getElement('#artistSongsView');
+            if (artistGrid) (artistGrid as HTMLElement).style.display = '';
+            if (artistFilter) (artistFilter as HTMLElement).style.display = '';
+            if (artistSongsView) (artistSongsView as HTMLElement).style.display = 'none';
+        });
+    }
+
+    // 返回电台列表按钮
+    const backToRadios = getElement('#backToRadios');
+    if (backToRadios) {
+        backToRadios.addEventListener('click', () => {
+            const radioListView = getElement('#radioListView');
+            const radioProgramsView = getElement('#radioProgramsView');
+            if (radioListView) (radioListView as HTMLElement).style.display = '';
+            if (radioProgramsView) (radioProgramsView as HTMLElement).style.display = 'none';
+        });
+    }
+
+    // 右栏"我的"子标签切换
+    document.querySelectorAll('.my-tab-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = (button as HTMLElement).dataset.mytab;
+            if (tabName) switchMyTab(tabName);
+        });
+    });
 
     // NOTE: 全局键盘快捷键
     document.addEventListener('keydown', e => {
@@ -338,12 +391,11 @@ function adjustVolume(delta: number): void {
  */
 async function handleSearch(): Promise<void> {
     const searchInput = getElement<HTMLInputElement>('#searchInput');
-    const sourceSelect = getElement<HTMLSelectElement>('#sourceSelect');
 
     if (!searchInput) return;
 
     const keyword = searchInput.value.trim();
-    const source = sourceSelect?.value || 'netease'; // 从选择器获取音乐源
+    const source = 'netease';
 
     if (!keyword) {
         ui.showNotification('请输入搜索关键词', 'warning');
@@ -356,6 +408,9 @@ async function handleSearch(): Promise<void> {
         return;
     }
 
+    // 搜索时自动切换到搜索标签
+    switchTab('hot');
+
     ui.showLoading('searchResults');
 
     try {
@@ -365,24 +420,7 @@ async function handleSearch(): Promise<void> {
         if (songs.length === 0) {
             ui.showNotification('未找到相关歌曲', 'info');
         } else {
-            // 显示当前使用的音乐源
-            const sourceNames: { [key: string]: string } = {
-                netease: '网易云音乐',
-                tencent: 'QQ音乐',
-                kuwo: '酷我音乐',
-                kugou: '酷狗音乐',
-                migu: '咪咕音乐',
-                joox: 'JOOX',
-                ximalaya: '喜马拉雅',
-                spotify: 'Spotify',
-                apple: 'Apple Music',
-                ytmusic: 'YouTube Music',
-                tidal: 'TIDAL',
-                qobuz: 'Qobuz',
-                deezer: 'Deezer',
-            };
-            const sourceName = sourceNames[source] || source;
-            ui.showNotification(`从 ${sourceName} 找到 ${songs.length} 首歌曲`, 'success');
+            ui.showNotification(`找到 ${songs.length} 首歌曲`, 'success');
         }
     } catch (error) {
         logger.error('Search failed:', error);
@@ -451,11 +489,179 @@ async function handleParsePlaylist(): Promise<void> {
  * 加载"我的"标签页数据（收藏和播放历史）
  */
 function loadMyTabData(): void {
-    // 加载收藏列表
     loadFavorites();
-
-    // 加载播放历史
     loadPlayHistory();
+}
+
+/**
+ * 切换右栏"我的"子标签
+ */
+function switchMyTab(tabName: string): void {
+    document.querySelectorAll('.my-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.my-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    const selectedBtn = document.querySelector(`.my-tab-btn[data-mytab="${tabName}"]`);
+    if (selectedBtn) selectedBtn.classList.add('active');
+
+    const panelMap: { [key: string]: string } = {
+        playlist: 'myPlaylistPanel',
+        favorites: 'myFavoritesPanel',
+        history: 'myHistoryPanel',
+    };
+
+    const panelId = panelMap[tabName];
+    if (panelId) {
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
+    }
+
+    // 切换到收藏或历史时刷新数据
+    if (tabName === 'favorites') loadFavorites();
+    if (tabName === 'history') loadPlayHistory();
+}
+
+/**
+ * 加载歌手列表
+ */
+async function handleLoadArtists(area: number, type: number = -1): Promise<void> {
+    const artistGrid = getElement('#artistGrid');
+    if (artistGrid) {
+        artistGrid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-spinner fa-spin"></i><div>正在加载...</div></div>`;
+    }
+
+    // 确保歌手网格和筛选器可见，隐藏歌曲视图
+    const artistFilter = getElement('#artistFilter');
+    const artistSongsView = getElement('#artistSongsView');
+    if (artistGrid) (artistGrid as HTMLElement).style.display = '';
+    if (artistFilter) (artistFilter as HTMLElement).style.display = '';
+    if (artistSongsView) (artistSongsView as HTMLElement).style.display = 'none';
+
+    try {
+        const artists = await api.getArtistList(area, type);
+        ui.displayArtistGrid(artists, 'artistGrid', handleArtistClick);
+    } catch (error) {
+        logger.error('Load artists failed:', error);
+        if (artistGrid) {
+            artistGrid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-exclamation-triangle"></i><div>加载歌手失败</div></div>`;
+        }
+    }
+}
+
+/**
+ * 点击歌手，加载热门歌曲
+ */
+async function handleArtistClick(artist: ArtistInfo): Promise<void> {
+    const artistGrid = getElement('#artistGrid');
+    const artistFilter = getElement('#artistFilter');
+    const artistSongsView = getElement('#artistSongsView');
+    const artistSongsHeader = getElement('#artistSongsHeader');
+
+    // 切换视图：隐藏网格，显示歌曲列表
+    if (artistGrid) (artistGrid as HTMLElement).style.display = 'none';
+    if (artistFilter) (artistFilter as HTMLElement).style.display = 'none';
+    if (artistSongsView) (artistSongsView as HTMLElement).style.display = '';
+
+    // 渲染歌手头部信息
+    if (artistSongsHeader) {
+        const avatarUrl = artist.picUrl ? `${artist.picUrl}?param=96y96` : '';
+        artistSongsHeader.innerHTML = `
+            ${avatarUrl ? `<img src="${avatarUrl}" alt="${artist.name}">` : ''}
+            <span class="artist-header-name">${artist.name} 的热门歌曲</span>
+        `;
+    }
+
+    ui.showLoading('artistSongsResults');
+
+    try {
+        const songs = await api.getArtistTopSongs(artist.id);
+        ui.displaySearchResults(songs, 'artistSongsResults', songs);
+        if (songs.length === 0) {
+            ui.showNotification('暂无热门歌曲', 'info');
+        }
+    } catch (error) {
+        logger.error('Load artist songs failed:', error);
+        ui.showError('加载歌手热门歌曲失败', 'artistSongsResults');
+    }
+}
+
+/**
+ * 加载热门电台
+ */
+async function handleLoadRadio(): Promise<void> {
+    const radioList = getElement('#radioList');
+    if (radioList) {
+        radioList.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><div>正在加载...</div></div>`;
+    }
+
+    // 确保电台列表视图可见
+    const radioListView = getElement('#radioListView');
+    const radioProgramsView = getElement('#radioProgramsView');
+    if (radioListView) (radioListView as HTMLElement).style.display = '';
+    if (radioProgramsView) (radioProgramsView as HTMLElement).style.display = 'none';
+
+    try {
+        const radios = await api.getHotRadio();
+        ui.displayRadioList(radios, 'radioList', handleRadioClick);
+    } catch (error) {
+        logger.error('Load radio failed:', error);
+        if (radioList) {
+            radioList.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><div>加载电台失败</div></div>`;
+        }
+    }
+}
+
+/**
+ * 点击电台，加载节目列表
+ */
+async function handleRadioClick(radio: RadioStation): Promise<void> {
+    const radioListView = getElement('#radioListView');
+    const radioProgramsView = getElement('#radioProgramsView');
+    const radioProgramsHeader = getElement('#radioProgramsHeader');
+
+    // 切换视图
+    if (radioListView) (radioListView as HTMLElement).style.display = 'none';
+    if (radioProgramsView) (radioProgramsView as HTMLElement).style.display = '';
+
+    // 渲染电台头部
+    if (radioProgramsHeader) {
+        const coverUrl = radio.picUrl ? `${radio.picUrl}?param=96y96` : '';
+        radioProgramsHeader.innerHTML = `
+            ${coverUrl ? `<img src="${coverUrl}" alt="${radio.name}">` : ''}
+            <span class="radio-header-name">${radio.name}</span>
+        `;
+    }
+
+    ui.showLoading('radioProgramResults');
+
+    try {
+        const programs = await api.getRadioPrograms(radio.id);
+        ui.displayRadioPrograms(programs, 'radioProgramResults', handleRadioProgramPlay);
+    } catch (error) {
+        logger.error('Load radio programs failed:', error);
+        ui.showError('加载电台节目失败', 'radioProgramResults');
+    }
+}
+
+/**
+ * 播放电台节目
+ */
+async function handleRadioProgramPlay(program: RadioProgram): Promise<void> {
+    // 将电台节目转为 Song 格式，使用 mainTrackId 作为歌曲 ID
+    const song = {
+        id: String(program.mainTrackId),
+        name: program.name,
+        artist: program.dj?.nickname ? [program.dj.nickname] : ['未知主播'],
+        album: '电台节目',
+        pic_id: '',
+        pic_url: program.coverUrl || '',
+        lyric_id: String(program.mainTrackId),
+        source: 'netease',
+        duration: program.duration,
+    };
+
+    player.playSong(0, [song], 'radioProgramResults');
 }
 
 /**

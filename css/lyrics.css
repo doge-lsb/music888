@@ -86,3 +86,26 @@
     color: rgba(255, 255, 255, 0.85);
     text-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
 }
+
+/* === Inline Lyrics (Player Section) === */
+.inline-lyrics {
+    text-align: center;
+    padding: 8px 10px;
+    min-height: 28px;
+    overflow: hidden;
+}
+
+.inline-lyric-text {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.3s ease;
+}
+
+.inline-lyric-text.has-lyric {
+    color: rgba(255, 255, 255, 0.9);
+}

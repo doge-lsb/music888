@@ -53,6 +53,7 @@ export function bindAudioEvents(): void {
             ui.updateProgress(audioPlayer.currentTime, audioPlayer.duration);
             if (currentLyrics.length > 0) {
                 ui.updateLyrics(currentLyrics, audioPlayer.currentTime);
+                ui.updateInlineLyrics(currentLyrics, audioPlayer.currentTime);
             }
         }
     });
