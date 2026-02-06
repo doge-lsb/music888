@@ -36,26 +36,30 @@
 @media (max-width: 1200px) {
     .main-container {
         grid-template-columns: 1fr 350px;
-        grid-template-rows: auto auto;
+        grid-template-rows: 1fr auto;
     }
 
     .lyrics-section {
         display: none;
     }
 
-    /* 平板端：右栏"我的"面板作为第二列 */
-    .my-panel-section {
-        grid-row: 1 / -1;
-    }
-
     .content-section {
-        height: auto;
-        min-height: 500px;
+        grid-column: 1;
+        grid-row: 1;
+        height: calc(100vh - 180px);
+        min-height: 400px;
     }
 
     .player-section {
+        grid-column: 1;
+        grid-row: 2;
         height: auto;
-        min-height: 400px;
+        min-height: unset;
+    }
+
+    .my-panel-section {
+        grid-column: 2;
+        grid-row: 1 / -1;
     }
 }
 
