@@ -124,7 +124,7 @@
         flex-shrink: 0;
         flex-grow: 0;
         padding: 10px 15px;
-        padding-bottom: 50px;
+        padding-bottom: 40px;
         box-sizing: border-box;
     }
 
@@ -186,7 +186,7 @@
 
     /* Fix scrollbars on mobile */
     .tab-content {
-        padding-bottom: 40px;
+        padding-bottom: 0;
     }
 
     /* 播放器内容一屏展示，紧凑布局 */
@@ -460,7 +460,7 @@
     /* === 右栏"我的"面板移动端 === */
     .my-panel-section {
         padding: 10px 15px !important;
-        padding-bottom: 50px !important;
+        padding-bottom: 40px !important;
         display: flex !important;
         flex-direction: column;
     }
@@ -649,7 +649,7 @@
     .lyrics-section,
     .my-panel-section {
         padding: 12px 8px;
-        padding-bottom: 50px;
+        padding-bottom: 40px;
     }
 
     /* 标签页文字更紧凑 */
@@ -837,7 +837,7 @@
     .player-section,
     .lyrics-section,
     .my-panel-section {
-        padding-bottom: calc(50px + env(safe-area-inset-bottom));
+        padding-bottom: calc(40px + env(safe-area-inset-bottom));
     }
 }
 
