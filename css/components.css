@@ -1137,3 +1137,117 @@
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
 }
+
+/* === Artist Description === */
+.artist-desc {
+    margin-bottom: 15px;
+    padding: 0 5px;
+}
+
+.artist-desc-text {
+    font-size: 13px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: pre-line;
+}
+
+.artist-desc-text.collapsed {
+    max-height: 80px;
+    overflow: hidden;
+    position: relative;
+}
+
+.artist-desc-text.collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(transparent, var(--color-bg));
+    pointer-events: none;
+}
+
+.artist-desc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 6px 0;
+    transition: opacity 0.3s ease;
+}
+
+.artist-desc-toggle:hover {
+    opacity: 0.8;
+}
+
+/* === Artist Section Label === */
+.artist-section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0 0 12px 5px;
+}
+
+.artist-section-label i {
+    color: var(--color-primary);
+}
+
+/* === Artist Album Grid === */
+.artist-album-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.artist-album-grid .load-more-btn {
+    grid-column: 1 / -1;
+}
+
+.album-card {
+    text-align: center;
+    padding: 10px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.album-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.album-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    object-fit: cover;
+    margin-bottom: 8px;
+}
+
+.album-name {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.album-year {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+}

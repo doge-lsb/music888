@@ -523,6 +523,44 @@ export interface ArtistListResponse {
 }
 
 /**
+ * 歌手简介 API 响应
+ */
+export interface ArtistDescResponse {
+    code: number;
+    briefDesc?: string;
+    introduction?: Array<{ ti: string; txt: string }>;
+}
+
+/**
+ * 专辑信息（用于歌手专辑列表）
+ */
+export interface AlbumInfo {
+    id: number;
+    name: string;
+    picUrl?: string;
+    publishTime?: number;
+    size?: number;
+}
+
+/**
+ * 歌手专辑列表 API 响应
+ */
+export interface ArtistAlbumsResponse {
+    code: number;
+    hotAlbums?: AlbumInfo[];
+    more?: boolean;
+}
+
+/**
+ * 专辑详情 API 响应
+ */
+export interface AlbumDetailResponse {
+    code: number;
+    album?: AlbumInfo;
+    songs?: NeteaseSongDetail[];
+}
+
+/**
  * 歌手热门歌曲 API 响应
  */
 export interface ArtistTopSongResponse {

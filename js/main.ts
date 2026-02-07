@@ -6,7 +6,7 @@ import * as api from './api';
 import * as ui from './ui';
 import * as player from './player';
 import { getElement } from './utils';
-import { MusicError, ArtistInfo, RadioStation, RadioProgram, RadioCategory, Song, UserPlaylist } from './types';
+import { MusicError, ArtistInfo, AlbumInfo, RadioStation, RadioProgram, RadioCategory, Song, UserPlaylist } from './types';
 import { logger } from './config';
 import { initPerformanceMonitoring } from './perf';
 
@@ -26,11 +26,10 @@ let radioHasMore = false;
 let radioCurrentCateId = 0; // 0 = 热门
 let radioCategoriesLoaded = false;
 
-// NOTE: 歌手歌曲分页状态
-let artistSongsOffset = 0;
-let artistSongsHasMore = false;
-let artistSongsCurrentId = 0;
-let artistSongsAllSongs: Song[] = [];
+// NOTE: 歌手专辑分页状态
+let artistAlbumsOffset = 0;
+let artistAlbumsHasMore = false;
+let artistDetailCurrentId = 0;
 
 // NOTE: 触摸滑动状态
 let touchStartX = 0;
@@ -401,10 +400,21 @@ function bindEventListeners(): void {
         backToArtists.addEventListener('click', () => {
             const artistGrid = getElement('#artistGrid');
             const artistFilter = getElement('#artistFilter');
-            const artistSongsView = getElement('#artistSongsView');
+            const artistDetailView = getElement('#artistDetailView');
             if (artistGrid) (artistGrid as HTMLElement).style.display = '';
             if (artistFilter) (artistFilter as HTMLElement).style.display = '';
-            if (artistSongsView) (artistSongsView as HTMLElement).style.display = 'none';
+            if (artistDetailView) (artistDetailView as HTMLElement).style.display = 'none';
+        });
+    }
+
+    // 返回歌手详情按钮
+    const backToArtistDetail = getElement('#backToArtistDetail');
+    if (backToArtistDetail) {
+        backToArtistDetail.addEventListener('click', () => {
+            const artistDetailView = getElement('#artistDetailView');
+            const albumSongsView = getElement('#albumSongsView');
+            if (artistDetailView) (artistDetailView as HTMLElement).style.display = '';
+            if (albumSongsView) (albumSongsView as HTMLElement).style.display = 'none';
         });
     }
 
@@ -626,12 +636,14 @@ async function handleLoadArtists(area: number, type: number = -1, initial: strin
         }
     }
 
-    // 确保歌手网格和筛选器可见，隐藏歌曲视图
+    // 确保歌手网格和筛选器可见，隐藏详情视图
     const artistFilter = getElement('#artistFilter');
-    const artistSongsView = getElement('#artistSongsView');
+    const artistDetailView = getElement('#artistDetailView');
+    const albumSongsView = getElement('#albumSongsView');
     if (artistGrid) (artistGrid as HTMLElement).style.display = '';
     if (artistFilter) (artistFilter as HTMLElement).style.display = '';
-    if (artistSongsView) (artistSongsView as HTMLElement).style.display = 'none';
+    if (artistDetailView) (artistDetailView as HTMLElement).style.display = 'none';
+    if (albumSongsView) (albumSongsView as HTMLElement).style.display = 'none';
 
     try {
         const result = await api.getArtistList(area, type, initial, 60, artistOffset);
@@ -651,26 +663,27 @@ async function handleLoadArtists(area: number, type: number = -1, initial: strin
 }
 
 /**
- * 点击歌手，加载全部歌曲（分页）
+ * 点击歌手，显示歌手详情（简介 + 专辑网格）
  */
 async function handleArtistClick(artist: ArtistInfo): Promise<void> {
     const artistGrid = getElement('#artistGrid');
     const artistFilter = getElement('#artistFilter');
-    const artistSongsView = getElement('#artistSongsView');
-    const artistSongsHeader = getElement('#artistSongsHeader');
+    const artistDetailView = getElement('#artistDetailView');
+    const artistDetailHeader = getElement('#artistDetailHeader');
+    const artistDesc = getElement('#artistDesc');
 
-    // 切换视图：隐藏网格，显示歌曲列表
+    // 切换视图：隐藏网格，显示歌手详情
     if (artistGrid) (artistGrid as HTMLElement).style.display = 'none';
     if (artistFilter) (artistFilter as HTMLElement).style.display = 'none';
-    if (artistSongsView) (artistSongsView as HTMLElement).style.display = '';
+    if (artistDetailView) (artistDetailView as HTMLElement).style.display = '';
 
-    // 渲染增强头部信息
-    if (artistSongsHeader) {
+    // 渲染歌手头部信息
+    if (artistDetailHeader) {
         const avatarUrl = artist.picUrl ? `${artist.picUrl}?param=96y96` : '';
         const metaParts: string[] = [];
         if (artist.musicSize) metaParts.push(`${artist.musicSize}首歌曲`);
         if (artist.albumSize) metaParts.push(`${artist.albumSize}张专辑`);
-        artistSongsHeader.innerHTML = `
+        artistDetailHeader.innerHTML = `
             ${avatarUrl ? `<img src="${avatarUrl}" alt="${artist.name}">` : ''}
             <div class="artist-header-info">
                 <span class="artist-header-name">${artist.name}</span>
@@ -679,55 +692,117 @@ async function handleArtistClick(artist: ArtistInfo): Promise<void> {
         `;
     }
 
-    // 重置分页状态
-    artistSongsOffset = 0;
-    artistSongsHasMore = false;
-    artistSongsCurrentId = artist.id;
-    artistSongsAllSongs = [];
+    // 简介区域显示加载中
+    if (artistDesc) {
+        artistDesc.innerHTML = '<span style="color:rgba(255,255,255,0.5)">加载简介中...</span>';
+    }
 
-    await loadArtistSongsPage(false);
+    // 重置专辑分页状态
+    artistAlbumsOffset = 0;
+    artistAlbumsHasMore = false;
+    artistDetailCurrentId = artist.id;
+
+    // 并行加载简介和专辑
+    const [descResult, albumsResult] = await Promise.all([
+        api.getArtistDesc(artist.id).catch(() => ({ briefDesc: '', introduction: [] })),
+        api.getArtistAlbums(artist.id, 30, 0).catch(() => ({ albums: [], more: false }))
+    ]);
+
+    // 渲染简介
+    if (artistDesc) {
+        const desc = descResult.briefDesc;
+        if (desc) {
+            const isLong = desc.length > 120;
+            artistDesc.innerHTML = `
+                <div class="artist-desc-text ${isLong ? 'collapsed' : ''}">${desc}</div>
+                ${isLong ? '<button class="artist-desc-toggle">展开 <i class="fas fa-chevron-down"></i></button>' : ''}
+            `;
+            const toggleBtn = artistDesc.querySelector('.artist-desc-toggle');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', () => {
+                    const textEl = artistDesc.querySelector('.artist-desc-text');
+                    if (textEl) {
+                        const isCollapsed = textEl.classList.contains('collapsed');
+                        textEl.classList.toggle('collapsed');
+                        toggleBtn.innerHTML = isCollapsed
+                            ? '收起 <i class="fas fa-chevron-up"></i>'
+                            : '展开 <i class="fas fa-chevron-down"></i>';
+                    }
+                });
+            }
+        } else {
+            artistDesc.innerHTML = '';
+        }
+    }
+
+    // 渲染专辑网格
+    artistAlbumsOffset = albumsResult.albums.length;
+    artistAlbumsHasMore = albumsResult.more;
+    ui.displayAlbumGrid(albumsResult.albums, 'artistAlbumGrid', handleAlbumClick, {
+        append: false,
+        hasMore: artistAlbumsHasMore,
+        onLoadMore: () => loadMoreArtistAlbums()
+    });
 }
 
 /**
- * 加载歌手歌曲分页
+ * 加载更多歌手专辑
  */
-async function loadArtistSongsPage(append: boolean): Promise<void> {
-    if (!append) {
-        ui.showLoading('artistSongsResults');
+async function loadMoreArtistAlbums(): Promise<void> {
+    try {
+        const result = await api.getArtistAlbums(artistDetailCurrentId, 30, artistAlbumsOffset);
+        artistAlbumsOffset += result.albums.length;
+        artistAlbumsHasMore = result.more;
+        ui.displayAlbumGrid(result.albums, 'artistAlbumGrid', handleAlbumClick, {
+            append: true,
+            hasMore: artistAlbumsHasMore,
+            onLoadMore: () => loadMoreArtistAlbums()
+        });
+    } catch (error) {
+        logger.error('Load more artist albums failed:', error);
+        ui.showNotification('加载更多专辑失败', 'error');
+    }
+}
+
+/**
+ * 点击专辑，显示专辑歌曲列表
+ */
+async function handleAlbumClick(album: AlbumInfo): Promise<void> {
+    const artistDetailView = getElement('#artistDetailView');
+    const albumSongsView = getElement('#albumSongsView');
+    const albumSongsHeader = getElement('#albumSongsHeader');
+
+    // 切换视图
+    if (artistDetailView) (artistDetailView as HTMLElement).style.display = 'none';
+    if (albumSongsView) (albumSongsView as HTMLElement).style.display = '';
+
+    // 渲染专辑头部
+    if (albumSongsHeader) {
+        const coverUrl = album.picUrl ? `${album.picUrl}?param=96y96` : '';
+        const year = album.publishTime ? new Date(album.publishTime).getFullYear() : '';
+        const sizePart = album.size ? `${album.size}首` : '';
+        const metaParts = [year, sizePart].filter(Boolean).join(' · ');
+        albumSongsHeader.innerHTML = `
+            ${coverUrl ? `<img src="${coverUrl}" alt="${album.name}" style="border-radius:8px;">` : ''}
+            <div class="artist-header-info">
+                <span class="artist-header-name">${album.name}</span>
+                ${metaParts ? `<span class="artist-header-meta">${metaParts}</span>` : ''}
+            </div>
+        `;
     }
 
+    ui.showLoading('albumSongsResults');
+
     try {
-        const result = await api.getArtistSongs(artistSongsCurrentId, 50, artistSongsOffset);
-        artistSongsAllSongs = artistSongsAllSongs.concat(result.songs);
-        artistSongsOffset += result.songs.length;
-        artistSongsHasMore = result.more;
+        const result = await api.getAlbumDetail(album.id);
+        ui.displaySearchResults(result.songs, 'albumSongsResults', result.songs);
 
-        // 渲染完整累积列表
-        ui.displaySearchResults(artistSongsAllSongs, 'artistSongsResults', artistSongsAllSongs);
-
-        // 如果还有更多，追加"加载更多"按钮
-        if (artistSongsHasMore) {
-            const container = getElement('#artistSongsResults');
-            if (container) {
-                const btn = document.createElement('button');
-                btn.className = 'load-more-btn';
-                btn.innerHTML = `<i class="fas fa-plus-circle"></i> 加载更多 (已加载 ${artistSongsAllSongs.length}/${result.total})`;
-                btn.addEventListener('click', () => {
-                    btn.remove();
-                    loadArtistSongsPage(true);
-                });
-                container.appendChild(btn);
-            }
-        }
-
-        if (result.songs.length === 0 && !append) {
-            ui.showNotification('暂无歌曲', 'info');
+        if (result.songs.length === 0) {
+            ui.showNotification('该专辑暂无歌曲', 'info');
         }
     } catch (error) {
-        logger.error('Load artist songs failed:', error);
-        if (!append) {
-            ui.showError('加载歌手歌曲失败', 'artistSongsResults');
-        }
+        logger.error('Load album detail failed:', error);
+        ui.showError('加载专辑歌曲失败', 'albumSongsResults');
     }
 }
 

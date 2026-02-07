@@ -188,10 +188,23 @@
                     </div>
                 </div>
                 <div id="artistGrid" class="artist-grid"></div>
-                <div id="artistSongsView" style="display:none;">
-                    <button class="back-btn" id="backToArtists"><i class="fas fa-arrow-left"></i> 返回歌手列表</button>
-                    <div class="artist-songs-header" id="artistSongsHeader"></div>
-                    <div class="search-results" id="artistSongsResults"></div>
+                <!-- 歌手详情视图（介绍 + 专辑） -->
+                <div id="artistDetailView" style="display:none;">
+                    <button class="back-btn" id="backToArtists">
+                        <i class="fas fa-arrow-left"></i> 返回歌手列表
+                    </button>
+                    <div class="artist-songs-header" id="artistDetailHeader"></div>
+                    <div class="artist-desc" id="artistDesc"></div>
+                    <h4 class="artist-section-label"><i class="fas fa-compact-disc"></i> 专辑</h4>
+                    <div id="artistAlbumGrid" class="artist-album-grid"></div>
+                </div>
+                <!-- 专辑歌曲视图 -->
+                <div id="albumSongsView" style="display:none;">
+                    <button class="back-btn" id="backToArtistDetail">
+                        <i class="fas fa-arrow-left"></i> 返回歌手详情
+                    </button>
+                    <div class="artist-songs-header" id="albumSongsHeader"></div>
+                    <div class="search-results" id="albumSongsResults"></div>
                 </div>
             </div>
 

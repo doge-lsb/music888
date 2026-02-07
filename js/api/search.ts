@@ -18,6 +18,10 @@ import {
     ArtistListResponse,
     ArtistTopSongResponse,
     ArtistSongsResponse,
+    ArtistDescResponse,
+    AlbumInfo,
+    ArtistAlbumsResponse,
+    AlbumDetailResponse,
     RadioStation,
     RadioHotResponse,
     RadioProgram,
@@ -255,4 +259,40 @@ export async function getRadioDetail(rid: number): Promise<RadioStation | null> 
     const res = await fetchWithRetry(`${getNecApiUrl()}/dj/detail?rid=${rid}`);
     const data: RadioDetailResponse = await res.json();
     return data.code === 200 && data.data ? data.data : null;
+}
+
+/**
+ * 获取歌手简介
+ */
+export async function getArtistDesc(id: number): Promise<{ briefDesc: string; introduction: Array<{ ti: string; txt: string }> }> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/artist/desc?id=${id}`);
+    const data: ArtistDescResponse = await res.json();
+    return {
+        briefDesc: data.code === 200 && data.briefDesc ? data.briefDesc : '',
+        introduction: data.code === 200 && data.introduction ? data.introduction : []
+    };
+}
+
+/**
+ * 获取歌手专辑列表
+ */
+export async function getArtistAlbums(id: number, limit = 30, offset = 0): Promise<{ albums: AlbumInfo[], more: boolean }> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/artist/album?id=${id}&limit=${limit}&offset=${offset}`);
+    const data: ArtistAlbumsResponse = await res.json();
+    return {
+        albums: data.code === 200 && data.hotAlbums ? data.hotAlbums : [],
+        more: data.more ?? false
+    };
+}
+
+/**
+ * 获取专辑详情（含歌曲列表）
+ */
+export async function getAlbumDetail(id: number): Promise<{ album: AlbumInfo | null, songs: Song[] }> {
+    const res = await fetchWithRetry(`${getNecApiUrl()}/album?id=${id}`);
+    const data: AlbumDetailResponse = await res.json();
+    return {
+        album: data.code === 200 && data.album ? data.album : null,
+        songs: data.code === 200 && data.songs ? data.songs.map(convertNeteaseDetailToSong) : []
+    };
 }
