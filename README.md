@@ -178,6 +178,9 @@ wrangler pages deploy dist --project-name music888
 | `VITE_TURNSTILE_SITE_KEY` | Cloudflare Turnstile 站点密钥（构建时注入前端） |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile 服务端密钥（运行时验证） |
 
+获取步骤：1. 登录控制台：登录 Cloudflare 账户，进入 "Turnstile" 选项卡。
+2. 创建小部件：点击添加站点，填写域名（支持域名白名单）并选择小部件类型。
+3. 获取密钥：点击 "Manage widget"，即可复制生成的站点密钥 Site key（用于前端渲染）和 服务端密钥Secret key（用于后端验证）。
 #### 自定义域名
 
 1. Pages Dashboard → Custom domains
